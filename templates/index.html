@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SMS Scam Detector</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 30px 16px;
+            color: #1a1a2e;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 24px;
+        }
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 6px;
+        }
+        header p {
+            opacity: 0.85;
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 30px rgba(0,0,0,0.15);
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            margin-bottom: 12px;
+            color: #1e3c72;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 110px;
+            padding: 12px;
+            border: 2px solid #e0e5ee;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #2a5298;
+        }
+
+        button {
+            background: #2a5298;
+            color: #fff;
+            border: none;
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: background 0.2s, transform 0.05s;
+        }
+        button:hover { background: #1e3c72; }
+        button:active { transform: translateY(1px); }
+        button.secondary {
+            background: #e0e5ee;
+            color: #1e3c72;
+            margin-left: 8px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        button.secondary:hover { background: #cdd6e4; }
+
+        .result {
+            margin-top: 18px;
+            padding: 18px;
+            border-radius: 10px;
+            display: none;
+        }
+        .result.show { display: block; }
+
+        .result.fraud {
+            background: #ffe5e5;
+            border-left: 5px solid #d32f2f;
+        }
+        .result.normal {
+            background: #e5f5ea;
+            border-left: 5px solid #2e7d32;
+        }
+        .result .label {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        .result.fraud .label { color: #d32f2f; }
+        .result.normal .label { color: #2e7d32; }
+
+        .result .meta {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .stat {
+            background: #f4f6fa;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat .num {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2a5298;
+        }
+        .stat .lbl {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .recent-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: #f4f6fa;
+            font-size: 0.9rem;
+        }
+        .recent-item.fraud { border-left: 4px solid #d32f2f; }
+        .recent-item.normal { border-left: 4px solid #2e7d32; }
+        .recent-item .msg {
+            color: #333;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+        .recent-item .meta {
+            font-size: 0.78rem;
+            color: #777;
+        }
+
+        .empty {
+            color: #888;
+            font-style: italic;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .loading { opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>🛡️ SMS Scam Detector</h1>
+        <p>Paste a suspicious SMS below to check if it's a scam</p>
+    </header>
+
+    <div class="card">
+        <h2>Scan a message</h2>
+        <textarea id="messageInput" placeholder="Paste or type an SMS message here..."></textarea>
+        <button id="scanBtn" onclick="scanMessage()">🔍 Scan</button>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Database statistics</h2>
+        <div class="stats">
+            <div class="stat"><div class="num">{{ stats.total_scans }}</div><div class="lbl">Scans</div></div>
+            <div class="stat"><div class="num">{{ stats.fraud_count }}</div><div class="lbl">Fraud</div></div>
+            <div class="stat"><div class="num">{{ stats.normal_count }}</div><div class="lbl">Normal</div></div>
+            <div class="stat"><div class="num">{{ stats.reports_count }}</div><div class="lbl">Reports</div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Recent scans</h2>
+        <div id="recentList">
+            {% if recent %}
+                {% for scan in recent %}
+                    <div class="recent-item {{ 'fraud' if scan.prediction == 1 else 'normal' }}">
+                        <div class="msg">
+                            {{ '🚨' if scan.prediction == 1 else '✅' }}
+                            {{ scan.message[:120] }}{% if scan.message|length > 120 %}...{% endif %}
+                        </div>
+                        <div class="meta">
+                            #{{ scan.id }} · {{ "%.1f"|format(scan.confidence * 100) }}% confidence · {{ scan.source }} · {{ scan.created_at[:19] }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty">No scans yet. Try one above!</div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+async function scanMessage() {
+    const input = document.getElementById('messageInput');
+    const result = document.getElementById('result');
+    const btn = document.getElementById('scanBtn');
+    const message = input.value.trim();
+
+    if (!message) {
+        alert("Please enter a message.");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.textContent = "Scanning...";
+
+    try {
+        const response = await fetch('/api/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            result.className = 'result fraud show';
+            result.innerHTML = `<div class="label">Error</div><div>${data.error || 'Unknown error'}</div>`;
+            return;
+        }
+
+        const isFraud = data.prediction === 1;
+        const pct = (data.confidence * 100).toFixed(2);
+
+        result.className = `result ${isFraud ? 'fraud' : 'normal'} show`;
+        result.innerHTML = `
+            <div class="label">${isFraud ? '🚨 FRAUD DETECTED' : '✅ LOOKS NORMAL'}</div>
+            <div class="meta">
+                Confidence: <strong>${pct}%</strong> &nbsp;·&nbsp;
+                P(fraud) = ${(data.probability_fraud * 100).toFixed(2)}% &nbsp;·&nbsp;
+                Scan ID: ${data.scan_id}
+            </div>
+            <button class="secondary" onclick="report(${data.scan_id}, 'correct')">✓ Correct</button>
+            <button class="secondary" onclick="report(${data.scan_id}, 'wrong')">✗ Wrong</button>
+        `;
+
+        setTimeout(refreshPage, 500);
+
+    } catch (err) {
+        result.className = 'result fraud show';
+        result.innerHTML = `<div class="label">Error</div><div>${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.textContent = "🔍 Scan";
+    }
+}
+
+async function report(scanId, feedback) {
+    try {
+        const res = await fetch('/api/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scan_id: scanId, feedback })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ Report saved (scan #${scanId}: ${feedback})`);
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    } catch (err) {
+        alert(`Error: ${err.message}`);
+    }
+}
+
+async function refreshPage() {
+    try {
+        const statsRes = await fetch('/api/stats');
+        const stats = await statsRes.json();
+
+        document.querySelectorAll('.stat .num')[0].textContent = stats.total_scans;
+        document.querySelectorAll('.stat .num')[1].textContent = stats.fraud_count;
+        document.querySelectorAll('.stat .num')[2].textContent = stats.normal_count;
+        document.querySelectorAll('.stat .num')[3].textContent = stats.reports_count;
+
+        const recentRes = await fetch('/api/recent?limit=8');
+        const recentData = await recentRes.json();
+
+        const list = document.getElementById('recentList');
+        if (recentData.scans.length === 0) {
+            list.innerHTML = '<div class="empty">No scans yet. Try one above!</div>';
+        } else {
+            list.innerHTML = recentData.scans.map(s => {
+                const isFraud = s.prediction === 1;
+                const short = s.message.length > 120 ? s.message.substring(0, 120) + '...' : s.message;
+                return `
+                    <div class="recent-item ${isFraud ? 'fraud' : 'normal'}">
+                        <div class="msg">${isFraud ? '🚨' : '✅'} ${escapeHtml(short)}</div>
+                        <div class="meta">#${s.id} · ${(s.confidence * 100).toFixed(1)}% confidence · ${s.source} · ${s.created_at.substring(0, 19)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+    } catch (err) {
+        console.error('Refresh failed:', err);
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;',
+        '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+</script>
+</body>
+</html>

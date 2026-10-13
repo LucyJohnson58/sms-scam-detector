@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# SQLite database (local scans — not for sharing)
+*.db
+
+# Model files (regenerate with train.py)
+models/*.pkl
+
+# Data files (large dataset — user downloads separately)
+data/*.csv
+data/*.xlsx
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
