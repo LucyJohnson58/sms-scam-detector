@@ -32,4 +32,4 @@ The system includes a **web application** where users can paste suspicious SMS m
 
 ---
 
-##  Architecture
+
